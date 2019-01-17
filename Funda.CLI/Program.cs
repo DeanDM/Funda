@@ -43,11 +43,15 @@ namespace Funda.CLI
                 Console.WriteLine(result.ErrorText);
             }
 
+            Console.WriteLine("Getting information ...");
+
             var api = new Api(options.ApiKey, options.Location, options.Tuin);
             var collector = new InformationCollector(api);
 
             var values = collector.GetMakelaarsInfo().Result;;
+            Console.Clear();
 
+            Console.WriteLine("Here's the top 10!");
             Console.WriteLine(values);
 
             Console.ReadLine();

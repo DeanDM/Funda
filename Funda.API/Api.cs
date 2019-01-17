@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Funda.API.Models;
 using Funda.Shared;
 using Newtonsoft.Json;
+using Polly;
 
 namespace Funda.API
 {
@@ -62,6 +63,7 @@ namespace Funda.API
 
     internal class GetAllPages
     {
+
         public static async Task<MakelaarResults> For(Uri baseUri)
         {
             //Initalize all the values
@@ -70,6 +72,9 @@ namespace Funda.API
             var counter = 1;
             var isThereANextPage = true;
 
+            var retryPolicy = Policy
+                                .Handle<Exception>()
+                                .Retry();
             do
             {
                 //Build the request
@@ -82,7 +87,7 @@ namespace Funda.API
                 // I like working with json a bit more so I opted for json
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-                await client.SendAsync(request)
+                await retryPolicy.Execute(() => client.SendAsync(request)
                     .ContinueWith(async getMakelaarsTask =>
                     {
                         var res = await getMakelaarsTask;
@@ -93,19 +98,19 @@ namespace Funda.API
                             throw new Exception($"Something went wrong calling the api: result = {await res.Content.ReadAsStringAsync()}");
                         }
 
-                    // If we made it here that means our request was a success and we have some data.
-                    // deserialize it and add it to the previous results
-                    var rawJsonResult = await res.Content.ReadAsStringAsync();
+                        // If we made it here that means our request was a success and we have some data.
+                        // deserialize it and add it to the previous results
+                        var rawJsonResult = await res.Content.ReadAsStringAsync();
 
                         var listOfMakelaars = JsonConvert.DeserializeObject<MakelaarResults>(rawJsonResult);
                         makelaarResults.Objects.AddRange(listOfMakelaars.Objects);
 
-                    // I know this is a bit weird but the result of volgende url looks like
-                    // /~/koop/amsterdam/p2/ which is a bit annoying because i can't just paste
-                    // that at the end of the request which has the format ?type=koop&zo=/amsterdam
-                    // so I just add the page at the end and if there's a value in here, just
-                    // go to the next page, else set nextpage to empty string so the loop ends
-                    if (string.IsNullOrEmpty(listOfMakelaars.Paging?.VolgendeUrl) == false)
+                        // I know this is a bit weird but the result of volgende url looks like
+                        // /~/koop/amsterdam/p2/ which is a bit annoying because i can't just paste
+                        // that at the end of the request which has the format ?type=koop&zo=/amsterdam
+                        // so I just add the page at the end and if there's a value in here, just
+                        // go to the next page, else set nextpage to empty string so the loop ends
+                        if (string.IsNullOrEmpty(listOfMakelaars.Paging?.VolgendeUrl) == false)
                         {
                             counter++;
                         }
@@ -113,7 +118,7 @@ namespace Funda.API
                         {
                             isThereANextPage = false;
                         }
-                    });
+                    }));
             } while (isThereANextPage);
 
             return makelaarResults;
