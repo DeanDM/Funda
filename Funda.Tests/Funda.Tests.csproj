@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Funda.API\Funda.API.csproj" />
     <ProjectReference Include="..\Funda.Core\Funda.Core.csproj" />
   </ItemGroup>
 

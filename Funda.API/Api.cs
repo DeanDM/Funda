@@ -14,7 +14,6 @@ namespace Funda.API
 {
     public class Api : IApiGetter
     {
-        
         private const string BaseUrl = "http://partnerapi.funda.nl/feeds/Aanbod.svc/";
         private readonly string _optionsApiKey;
         private readonly string _location;
@@ -35,7 +34,7 @@ namespace Funda.API
             // GetAllPages basically loops trough pages to get all results.
             var allResults = await GetAllPages.For(new Uri($"{BaseUrl}{_optionsApiKey}/?type=koop&zo=/{_location}{tuin}&page="));
 
-            //Little LINQ method that basically groups all results by makelaarId and how often they appear
+            //Groups all results by makelaarId and how often they appear
             var grouped = SquashedAndCountedList(allResults);
 
             // Then build the results. Another way to do this would be to return
@@ -72,6 +71,8 @@ namespace Funda.API
             var counter = 1;
             var isThereANextPage = true;
 
+            // I use Polly to handle retries. If this would fail for some reason it would retry once but we
+            // can configure it to retry multiple times with a timeout if we want. Thanks to Polly that's quite easy
             var retryPolicy = Policy
                                 .Handle<Exception>()
                                 .Retry();
@@ -87,6 +88,7 @@ namespace Funda.API
                 // I like working with json a bit more so I opted for json
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
+                // do "get a page" while "there is a next page"
                 await retryPolicy.Execute(() => client.SendAsync(request)
                     .ContinueWith(async getMakelaarsTask =>
                     {
